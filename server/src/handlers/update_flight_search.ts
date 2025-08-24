@@ -1,19 +1,55 @@
+import { db } from '../db';
+import { flightSearchesTable } from '../db/schema';
 import { type UpdateFlightSearchInput, type FlightSearch } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateFlightSearch(input: UpdateFlightSearchInput): Promise<FlightSearch> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing flight search with new parameters.
-    // This allows users to modify their monitoring requests (dates, destinations, active status).
-    // The handler should validate that the search exists and belongs to the requesting user.
-    return Promise.resolve({
-        id: input.id,
-        user_id: 0, // Placeholder - will be fetched from existing record
-        origin_city: input.origin_city || '', // Placeholder - will use existing or updated value
-        destination_city: input.destination_city || '', // Placeholder
-        departure_date: input.departure_date || new Date(), // Placeholder
-        return_date: input.return_date !== undefined ? input.return_date : null, // Handle nullable updates
-        is_active: input.is_active ?? true, // Placeholder
-        created_at: new Date(), // Placeholder - will keep original value
-        updated_at: new Date() // Will be set to current time
-    } as FlightSearch);
-}
+export const updateFlightSearch = async (input: UpdateFlightSearchInput): Promise<FlightSearch> => {
+  try {
+    // First, check if the flight search exists
+    const existingSearch = await db.select()
+      .from(flightSearchesTable)
+      .where(eq(flightSearchesTable.id, input.id))
+      .execute();
+
+    if (existingSearch.length === 0) {
+      throw new Error(`Flight search with id ${input.id} not found`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date()
+    };
+
+    if (input.origin_city !== undefined) {
+      updateData.origin_city = input.origin_city;
+    }
+
+    if (input.destination_city !== undefined) {
+      updateData.destination_city = input.destination_city;
+    }
+
+    if (input.departure_date !== undefined) {
+      updateData.departure_date = input.departure_date;
+    }
+
+    if (input.return_date !== undefined) {
+      updateData.return_date = input.return_date;
+    }
+
+    if (input.is_active !== undefined) {
+      updateData.is_active = input.is_active;
+    }
+
+    // Perform the update
+    const result = await db.update(flightSearchesTable)
+      .set(updateData)
+      .where(eq(flightSearchesTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Flight search update failed:', error);
+    throw error;
+  }
+};

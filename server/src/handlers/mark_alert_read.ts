@@ -1,19 +1,33 @@
+import { db } from '../db';
+import { alertsTable } from '../db/schema';
 import { type Alert } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function markAlertRead(alertId: number): Promise<Alert> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is marking a specific alert as read.
-    // This will be called when the user views an alert in the UI.
-    // The handler should validate that the alert exists and update its is_read status.
-    return Promise.resolve({
-        id: alertId,
-        flight_search_id: 0, // Placeholder - will be fetched from existing record
-        alert_type: 'price_drop', // Placeholder - will keep existing value
-        old_price: null, // Placeholder
-        new_price: 0, // Placeholder
-        currency: 'USD', // Placeholder
-        message: '', // Placeholder
-        is_read: true, // This is what we're updating
-        created_at: new Date() // Placeholder - will keep original value
-    } as Alert);
-}
+export const markAlertRead = async (alertId: number): Promise<Alert> => {
+  try {
+    // Update the alert's is_read status and return the updated record
+    const result = await db.update(alertsTable)
+      .set({ is_read: true })
+      .where(eq(alertsTable.id, alertId))
+      .returning()
+      .execute();
+
+    // Check if alert was found and updated
+    if (result.length === 0) {
+      throw new Error(`Alert with id ${alertId} not found`);
+    }
+
+    const alert = result[0];
+    
+    // Return the alert with proper type conversions
+    return {
+      ...alert,
+      // Convert integer prices back to numbers (they're stored as integers for cents)
+      old_price: alert.old_price,
+      new_price: alert.new_price
+    };
+  } catch (error) {
+    console.error('Mark alert as read failed:', error);
+    throw error;
+  }
+};
